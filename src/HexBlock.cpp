@@ -379,22 +379,22 @@ void HexBlock::initPatches()
     //Normal is out of domain and according to right hand rule
     //when cycling vertices in patch
     //(dice #1)
-    initPatch(0, 3, 2, 1);
+    initPatch(0,3,2,1);
     //(dice #2)
-    initPatch(0, 1, 5, 4);
+    initPatch(0,1,5,4);
     //(dice #3)
-    initPatch(0, 4, 7, 3);
+    initPatch(0,4,7,3);
     //(dice #4)
-    initPatch(1, 2, 6, 5);
+    initPatch(1,2,6,5);
     //(dice #5)
-    initPatch(3, 7, 6, 2);
+    initPatch(3,7,6,2);
     //(dice #6)
-    initPatch(4, 5, 6, 7);
+    initPatch(4,5,6,7);
 
     globalPatches->Modified();
 }
 
-void HexBlock::initPatch(int id0, int id1, int id2, int id3)
+void HexBlock::initPatch(int id0,int id1,int id2,int id3)
 {
     vtkSmartPointer<HexPatch> patch = vtkSmartPointer<HexPatch>::New();
 
