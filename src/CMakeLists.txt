@@ -31,23 +31,24 @@ SET(HexBlockerSrcs
     main.cpp MainWindow.cpp HexBlock.cpp HexBlocker.cpp
     HexPatch.cpp InteractorStyleVertPick.cpp
     MoveVerticesWidget.cpp CreateBlockWidget.cpp
-    InteractorStylePatchPick.cpp HexBC.cpp ToolBoxWidget.cpp
+    HexBC.cpp ToolBoxWidget.cpp
     SetBCsWidget.cpp SetBCsItem.cpp HexExporter.cpp HexEdge.cpp
-    InteractorStyleEdgePick.cpp HexReader.cpp
+    HexReader.cpp EdgePropsWidget.cpp
+    TEdgeSpace.cpp GradingCalculatorDialog.cpp InteractorStyleActorPick.cpp
     )
 SET(HexBlockerUI
     MainWindow.ui ToolBoxWidget.ui
     MoveVerticesWidget.ui CreateBlockWidget.ui
-    SetBCsWidget.ui
+    SetBCsWidget.ui EdgePropsWidget.ui
+    GradingCalculatorDialog.ui
     )
 SET(HexBlockerHeaders
     MainWindow.h HexBlock.h HexBlocker.h HexPatch.h
     InteractorStyleVertPick.h MoveVerticesWidget.h
-    CreateBlockWidget.h InteractorStylePatchPick.h
-    HexBC.h ToolBoxWidget.h SetBCsWidget.h SetBCsItem.h
-    HexExporter.h HexEdge.h
-    InteractorStyleEdgePick.h
-    HexReader.h
+    CreateBlockWidget.h HexBC.h ToolBoxWidget.h
+    SetBCsWidget.h SetBCsItem.h HexExporter.h HexEdge.h
+    HexReader.h EdgePropsWidget.h TEdgeSpace.h
+    GradingCalculatorDialog.h InteractorStyleActorPick.h
     )
 SET(HexBlockerResources Icons/icons.qrc)
 

@@ -74,7 +74,9 @@ public:
     void changeVertId(vtkIdType from, vtkIdType to);
     void reduceVertId(vtkIdType vId);
 
+    double getLength();
 
+    bool hasVertice(vtkIdType vId);
     //DATA
     vtkSmartPointer<vtkIdList> vertIds;
     vtkSmartPointer<vtkPoints> globalVertices;
@@ -83,6 +85,7 @@ public:
     vtkSmartPointer<vtkPolyDataMapper> mapper;
     vtkSmartPointer<vtkActor> actor;
     int nCells; // number of cells on edge
+    double grading;
 
 private:
     vtkSmartPointer<vtkLine> line;

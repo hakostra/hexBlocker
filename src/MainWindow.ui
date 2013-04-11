@@ -7,8 +7,20 @@
     <x>0</x>
     <y>0</y>
     <width>686</width>
-    <height>431</height>
+    <height>520</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>450</width>
+    <height>520</height>
+   </size>
+  </property>
+  <property name="baseSize">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -99,6 +111,10 @@
     </property>
     <addaction name="actionView_tool_bar"/>
     <addaction name="actionView_tool_box"/>
+    <addaction name="separator"/>
+    <addaction name="actionBlockVisibility"/>
+    <addaction name="actionPatchVisibility"/>
+    <addaction name="actionEdgeVisibility"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -138,6 +154,7 @@
    <addaction name="actionZoomOut"/>
    <addaction name="actionCreateHexBlock"/>
    <addaction name="actionExtrudePatch"/>
+   <addaction name="actionDeleteBlocks"/>
    <addaction name="actionOpenMoveVerticesDialog"/>
    <addaction name="actionSetBCs"/>
    <addaction name="actionSetNumber"/>
@@ -355,6 +372,61 @@
    </property>
    <property name="iconVisibleInMenu">
     <bool>true</bool>
+   </property>
+  </action>
+  <action name="actionDeleteBlocks">
+   <property name="icon">
+    <iconset>
+     <normalon>:/Icons/DeletHexBlock.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>delete blocks</string>
+   </property>
+   <property name="toolTip">
+    <string>Delete one or several HexBlocks</string>
+   </property>
+  </action>
+  <action name="actionBlockVisibility">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>block visibility</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+B</string>
+   </property>
+  </action>
+  <action name="actionPatchVisibility">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>patch visibility</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionEdgeVisibility">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>edge visibility</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
    </property>
   </action>
  </widget>

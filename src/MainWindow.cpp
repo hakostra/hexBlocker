@@ -24,17 +24,16 @@ License
 */
 
 
-
 #include "ui_MainWindow.h"
 #include "MainWindow.h"
 #include "HexBlocker.h"
 #include "HexBlock.h"
 #include "InteractorStyleVertPick.h"
-#include "InteractorStylePatchPick.h"
-#include "InteractorStyleEdgePick.h"
+#include "InteractorStyleActorPick.h"
 #include "ToolBoxWidget.h"
 #include "CreateBlockWidget.h"
 #include "MoveVerticesWidget.h"
+#include "EdgePropsWidget.h"
 #include "SetBCsWidget.h"
 #include "HexBC.h"
 #include "HexExporter.h"
@@ -54,6 +53,8 @@ License
 //#include <QInputDialog>
 //#include <QFileDialog>
 #include <QtGui>
+
+
 
 #define VTK_CREATE(type, name) \
     vtkSmartPointer<type> name = vtkSmartPointer<type>::New()
@@ -78,17 +79,15 @@ MainWindow::MainWindow()
     styleVertPick = vtkSmartPointer<InteractorStyleVertPick>::New();
     styleVertPick->SetPoints(hexBlocker->vertData);
     styleVertPick->SelectedSphere=hexBlocker->vertSphere;
-    stylePatchPick = vtkSmartPointer<InteractorStylePatchPick>::New();
-    stylePatchPick->SetPatches(hexBlocker->patches);
-    styleEdgePick = vtkSmartPointer<InteractorStyleEdgePick>::New();
-    styleEdgePick->SetEdges(hexBlocker->edges);
+    styleActorPick = vtkSmartPointer<InteractorStyleActorPick>::New();
+    styleActorPick->setHexBlocker(hexBlocker);
 
     defStyle = vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New();
 
     //Qt widgets
     toolbox = new ToolBoxWidget();
-    toolbox->setBCsW->hexBCs = hexBlocker->hexBCs;
-    toolbox->setBCsW->allPatches = hexBlocker->patches;
+    toolbox->setHexBlockerPointer(hexBlocker);
+
     this->addDockWidget(Qt::LeftDockWidgetArea,toolbox);
 
 
@@ -110,12 +109,12 @@ MainWindow::MainWindow()
     connect(styleVertPick,SIGNAL(selectionDone()),this,SLOT(slotEndSelectVertices()));
     connect(toolbox,SIGNAL(cancel()),this,SLOT(slotResetInteractor()));
     connect(this->ui->actionSetBCs,SIGNAL(triggered()),this,SLOT(slotOpenSetBCsDialog()));
-    connect(toolbox->setBCsW,SIGNAL(startSelectPatches(vtkIdType)),this,SLOT(slotStartSelectPatches(vtkIdType)));
+    connect(toolbox->setBCsW,SIGNAL(startSelectPatches(vtkIdList *)),this,SLOT(slotStartSelectPatches(vtkIdList *)));
     connect(toolbox->setBCsW,SIGNAL(resetInteractor()), this, SLOT(slotResetInteractor()));
     connect(toolbox->setBCsW,SIGNAL(render()),this,SLOT(slotRender()));
 
-
-    connect(this->ui->actionSetNumber,SIGNAL(triggered()),this,SLOT(slotStartSelectEdges()));
+    connect(this->ui->actionSetNumber,SIGNAL(triggered()),this,SLOT(slotOpenSetEdgePropsDialog()));
+    connect(toolbox->edgePropsW,SIGNAL(startSelectEdges()),this,SLOT(slotStartSelectEdges()));
     connect(toolbox,SIGNAL(setStatusText(QString)),this,SLOT(slotShowStatusText(QString)));
 
     connect(this->ui->actionNewCase,SIGNAL(triggered()),this,SLOT(slotNewCase()));
@@ -123,13 +122,20 @@ MainWindow::MainWindow()
     connect(this->ui->actionReOpenBlockMeshDict,SIGNAL(triggered()),this, SLOT(slotReOpenBlockMeshDict()));
     connect(this->ui->actionSave,SIGNAL(triggered()),this,SLOT(slotSaveBlockMeshDict()));
     connect(this->ui->actionSaveAs,SIGNAL(triggered()),this, SLOT(slotSaveAsBlockMeshDict()));
+    connect(this->ui->actionMergePatch,SIGNAL(triggered()),this,SLOT(slotStartMergePatch()));
+    connect(this->ui->actionDeleteBlocks,SIGNAL(triggered()),this,SLOT(slotStartDeleteHexBlock()));
 
+    connect(this->ui->actionBlockVisibility,SIGNAL(triggered()),
+            this,SLOT(slotHexObjVisibility()));
+    connect(this->ui->actionPatchVisibility,SIGNAL(triggered()),
+            this,SLOT(slotHexObjVisibility()));
+    connect(this->ui->actionEdgeVisibility,SIGNAL(triggered()),
+            this,SLOT(slotHexObjVisibility()));
 
     connect(this->ui->actionAbout_Qt,SIGNAL(triggered()),
             qApp,SLOT(aboutQt()));
     connect(this->ui->actionAbout_hexBlocker,SIGNAL(triggered()),
             this,SLOT(slotAboutDialog()));
-    connect(this->ui->actionMergePatch,SIGNAL(triggered()),this,SLOT(slotStartMergePatch()));
     connect(this->ui->actionArbitraryTest,SIGNAL(triggered()),this,SLOT(slotArbitraryTest()));
 
 }
@@ -161,6 +167,35 @@ void MainWindow::slotCreateHexBlock()
     renwin->Render();
 }
 
+void MainWindow::slotStartDeleteHexBlock()
+{
+    toolbox->setCurrentIndex(0); // show empty page
+    ui->statusbar->showMessage(tr(
+      "Select the blocks to delete with left button, middle when done and right to deslect"),
+      10000);
+    styleActorPick->setSelection(
+        InteractorStyleActorPick::block,
+        InteractorStyleActorPick::multi
+        );
+    renwin->GetInteractor()->SetInteractorStyle(styleActorPick);
+
+    hexBlocker->hidePatches();
+    renwin->Render();
+    connect(styleActorPick,SIGNAL(selectionDone()),this,SLOT(slotDeleteHexBlock()));
+
+
+}
+
+void MainWindow::slotDeleteHexBlock()
+{
+    disconnect(styleActorPick,SIGNAL(selectionDone()),this,SLOT(slotDeleteHexBlock()));
+    renwin->GetInteractor()->SetInteractorStyle(defStyle);
+    vtkIdList * selIds = styleActorPick->selectedIds;
+    hexBlocker->removeHexBlocks(selIds);
+    hexBlocker->showPatches();
+    hexBlocker->renderer->GetRenderWindow()->Render();
+}
+
 void MainWindow::slotPrintHexBlocks()
 {
     hexBlocker->PrintHexBlocks();
@@ -171,17 +206,17 @@ void MainWindow::slotStartExtrudePatch()
     toolbox->setCurrentIndex(0); // show empty page
     ui->statusbar->showMessage(
                 tr("Left button to select a patch, middle button to confirm, rightbutton to deselect"));
-    stylePatchPick->selectionMode=InteractorStylePatchPick::single;
-    stylePatchPick->selectedPatches->Initialize();
-    renwin->GetInteractor()->SetInteractorStyle(stylePatchPick);
-    connect(stylePatchPick,SIGNAL(selectionDone(vtkIdList *)),
-            this,SLOT(slotExtrudePatch(vtkIdList *)));
+    styleActorPick->setSelection(InteractorStyleActorPick::patch,
+                                 InteractorStyleActorPick::single);
+    renwin->GetInteractor()->SetInteractorStyle(styleActorPick);
+    connect(styleActorPick,SIGNAL(selectionDone()),
+            this,SLOT(slotExtrudePatch()));
 }
 
-void MainWindow::slotExtrudePatch(vtkIdList *selectedPatches)
+void MainWindow::slotExtrudePatch()
 {
     ui->statusbar->clearMessage();
-    if(selectedPatches->GetNumberOfIds()>0)
+    if(styleActorPick->selectedIds->GetNumberOfIds()>0)
     {
         bool ok;
         QString title = tr("Distance");
@@ -190,11 +225,11 @@ void MainWindow::slotExtrudePatch(vtkIdList *selectedPatches)
         double dist = QInputDialog::getDouble(this,title,label,1.0,0,1e12,1,&ok);
         if(ok && (dist >0.0) )
         {
-            hexBlocker->extrudePatch(selectedPatches,dist);
+            hexBlocker->extrudePatch(styleActorPick->selectedIds,dist);
         }
         else
         {
-            ui->statusbar->showMessage("Cancled",3000);
+            ui->statusbar->showMessage("Cancelled",3000);
         }
     }
     else
@@ -202,8 +237,8 @@ void MainWindow::slotExtrudePatch(vtkIdList *selectedPatches)
         ui->statusbar->showMessage("No patches selected!",3000);
     }
 
-    disconnect(stylePatchPick,SIGNAL(selectionDone(vtkIdList *)),
-               this,SLOT(slotExtrudePatch(vtkIdList *)));
+    disconnect(styleActorPick,SIGNAL(selectionDone()),
+               this,SLOT(slotExtrudePatch()));
 
     renwin->GetInteractor()->SetInteractorStyle(defStyle);
     renwin->Render();
@@ -267,29 +302,25 @@ void MainWindow::slotResetInteractor()
 void MainWindow::slotOpenSetBCsDialog()
 {
     toolbox->setCurrentIndex(3);
-
-
 }
 
-void MainWindow::slotStartSelectPatches(vtkIdType bcID)
+void MainWindow::slotStartSelectPatches(vtkIdList *selectedPatches)
 {
-    stylePatchPick->selectionMode=InteractorStylePatchPick::multi;
-    stylePatchPick->selectedPatches->Initialize(); //better to add old patches in bcId
-    renwin->GetInteractor()->SetInteractorStyle(stylePatchPick);
-    connect(stylePatchPick,SIGNAL(selectionDone(vtkIdList *)),
-            toolbox->setBCsW,SLOT(slotSelectionDone(vtkIdList*)));
-    connect(stylePatchPick,SIGNAL(selectionDone(vtkIdList*)),
+    styleActorPick->setSelection(InteractorStyleActorPick::patch,
+                                 InteractorStyleActorPick::multi);
+    styleActorPick->selectedIds->DeepCopy(selectedPatches);
+    renwin->GetInteractor()->SetInteractorStyle(styleActorPick);
+    connect(styleActorPick,SIGNAL(selectionDone()),
             this,SLOT(slotPatchSelectionDone()));
 
 }
 
 void MainWindow::slotPatchSelectionDone()
 {
-    disconnect(stylePatchPick,SIGNAL(selectionDone(vtkIdList *)),
-               toolbox->setBCsW,SLOT(slotSelectionDone(vtkIdList*)));
-    disconnect(stylePatchPick,SIGNAL(selectionDone(vtkIdList*)),
+    disconnect(styleActorPick,SIGNAL(selectionDone()),
                this,SLOT(slotPatchSelectionDone()));
-//    std::cout << "disconnecting" << std::endl;
+    toolbox->setBCsW->slotSelectionDone(styleActorPick->selectedIds);
+
 }
 
 void MainWindow::slotNewCase()
@@ -298,6 +329,7 @@ void MainWindow::slotNewCase()
     hexBlocker->removeOrientationAxes();
     renwin->RemoveRenderer(hexBlocker->renderer);
 
+    delete hexBlocker;
     hexBlocker = new HexBlocker();
     hexBlocker->renderer->SetBackground(.2, .3, .4);
 
@@ -309,15 +341,13 @@ void MainWindow::slotNewCase()
     //Repoint interactors.
     styleVertPick->SetPoints(hexBlocker->vertData);
     styleVertPick->SelectedSphere=hexBlocker->vertSphere;
-    stylePatchPick->SetPatches(hexBlocker->patches);
-    styleEdgePick->SetEdges(hexBlocker->edges);
+    styleActorPick->setHexBlocker(hexBlocker);
 
     //Repoint widgets
     // rensa bc's
 //    toolbox->setBCsW->changeBCs(reader);
 
-    toolbox->setBCsW->hexBCs = hexBlocker->hexBCs;
-    toolbox->setBCsW->allPatches = hexBlocker->patches;
+    toolbox->setHexBlockerPointer(hexBlocker);
     toolbox->setBCsW->clearBCs();
 
     renwin->Render();
@@ -433,8 +463,12 @@ void MainWindow::slotReOpenBlockMeshDict()
     hexBlocker->removeOrientationAxes();
     renwin->RemoveRenderer(hexBlocker->renderer);
 
+    delete hexBlocker;
     hexBlocker = new HexBlocker();
     hexBlocker->renderer->SetBackground(.2, .3, .4);
+
+    //reset pointers to hexBlocker in gui-classes
+    toolbox->setHexBlockerPointer(hexBlocker);
 
     renwin->AddRenderer(hexBlocker->renderer);
 
@@ -445,8 +479,7 @@ void MainWindow::slotReOpenBlockMeshDict()
     //Repoint interactors.
     styleVertPick->SetPoints(hexBlocker->vertData);
     styleVertPick->SelectedSphere=hexBlocker->vertSphere;
-    stylePatchPick->SetPatches(hexBlocker->patches);
-    styleEdgePick->SetEdges(hexBlocker->edges);
+    styleActorPick->setHexBlocker(hexBlocker);
 
     //Repoint widgets
     toolbox->setBCsW->changeBCs(reader);
@@ -456,53 +489,35 @@ void MainWindow::slotReOpenBlockMeshDict()
 
 void MainWindow::slotShowStatusText(QString text)
 {
-    ui->statusbar->showMessage(text,15000);
+    //Show for 10 secs
+    ui->statusbar->showMessage(text,10000);
+}
+
+void MainWindow::slotOpenSetEdgePropsDialog()
+{
+    toolbox->setCurrentIndex(4);
 }
 
 void MainWindow::slotStartSelectEdges()
 {
-    toolbox->setCurrentIndex(0); // show empty page
-    ui->statusbar->showMessage(tr("Select an edge, middle button to cancel"),5000);
-
-    renwin->GetInteractor()->SetInteractorStyle(styleEdgePick);
-    connect(styleEdgePick,SIGNAL(selectionDone(vtkIdType)),
-            this,SLOT(slotEdgeSelectionDone(vtkIdType)));
+    ui->statusbar->showMessage(tr("Select an edge, middle button when finished"),5000);
+    hexBlocker->resetColors();
+    styleActorPick->setSelection(InteractorStyleActorPick::edge,
+                                 InteractorStyleActorPick::single);
+    renwin->GetInteractor()->SetInteractorStyle(styleActorPick);
+    connect(styleActorPick,SIGNAL(selectionDone()),
+            this,SLOT(slotEdgeSelectionDone()));
 
     renwin->Render();
 }
 
 
-
-void MainWindow::slotEdgeSelectionDone(vtkIdType edgeId)
+void MainWindow::slotEdgeSelectionDone()
 {
-
-    disconnect(styleEdgePick,SIGNAL(selectionDone(vtkIdType)),
-               this,SLOT(slotEdgeSelectionDone(vtkIdType)));
-
-    int prevNCells=hexBlocker->showParallelEdges(edgeId);
-
-    QString title = tr("Number");
-    QString label = tr("Set the number of cells of this and parallel edges.");
-    bool ok;
-    int nCells = QInputDialog::getInt(this,title,label,prevNCells,1,2147483647,1,&ok);
-    if(ok && (nCells >= 1) )
-    {
-        hexBlocker->setNumberOnParallelEdges(edgeId,nCells);
-        ui->statusbar->showMessage(QString("Number of Cells has been set"),3000);
-    }
-    else
-    {
-        ui->statusbar->showMessage(QString("Cancelled or bad integer"),3000);
-        hexBlocker->resetColors();
-    }
-    QString msg("Total number of cells: ");
-    long int NCells = hexBlocker->calculateTotalNumberOfCells();
-    msg=msg.append(QString::number(NCells));
-    msg.append("\n which is approximately ");
-    double aNCells = (double)NCells;
-    msg.append(QString::number(aNCells,'g',3));
-    msg.append(".");
-    ui->statusbar->showMessage(msg,10000);
+    disconnect(styleActorPick,SIGNAL(selectionDone()),
+               this,SLOT(slotEdgeSelectionDone()));
+    vtkIdType edgeId = styleActorPick->selectedIds->GetId(0);
+    toolbox->edgePropsW->setSelectedEdge(edgeId);
     renwin->GetInteractor()->SetInteractorStyle(defStyle);
     renwin->Render();
 
@@ -580,18 +595,19 @@ void MainWindow::slotViewToolBox()
 
 void MainWindow::slotStartMergePatch()
 {
-    stylePatchPick->selectedPatches->Initialize();
-    stylePatchPick->selectionMode=InteractorStylePatchPick::pair;
-    renwin->GetInteractor()->SetInteractorStyle(stylePatchPick);
-    connect(stylePatchPick,SIGNAL(selectionDone(vtkIdList*)),
-            this,SLOT(slotMergePatch(vtkIdList*)));
+    styleActorPick->setSelection(InteractorStyleActorPick::patch,
+                                 InteractorStyleActorPick::pair);
+    renwin->GetInteractor()->SetInteractorStyle(styleActorPick);
+    connect(styleActorPick,SIGNAL(selectionDone()),
+            this,SLOT(slotMergePatch()));
+    this->ui->statusbar->showMessage(tr("Select first master and then slave, middle when done "),3000);
 }
 
-void MainWindow::slotMergePatch(vtkIdList * selectedPatches)
+void MainWindow::slotMergePatch()
 {
-    this->ui->statusbar->showMessage(tr("Select first master and then slave "),3000);
-    disconnect(stylePatchPick,SIGNAL(selectionDone(vtkIdList*)),
-               this,SLOT(slotMergePatch(vtkIdList*)));
+    disconnect(styleActorPick,SIGNAL(selectionDone()),
+               this,SLOT(slotMergePatch()));
+    vtkIdList * selectedPatches = styleActorPick->selectedIds;
     if(selectedPatches->GetNumberOfIds()<2)
     {
         this->ui->statusbar->showMessage("Cancelled",3000);
@@ -601,23 +617,35 @@ void MainWindow::slotMergePatch(vtkIdList * selectedPatches)
     else
     {
         hexBlocker->mergePatch(selectedPatches->GetId(0),selectedPatches->GetId(1));
-        stylePatchPick->selectedPatches->Initialize();
     }
     renwin->GetInteractor()->SetInteractorStyle(defStyle);
     slotResetInteractor();
     renwin->Render();
 }
 
+void MainWindow::slotHexObjVisibility()
+{
+    //maybe sett all here
+    hexBlocker->visibilityBlocks(this->ui->actionBlockVisibility->isChecked());
+    hexBlocker->visibilityPatches(this->ui->actionPatchVisibility->isChecked());
+    hexBlocker->visibilityEdges(this->ui->actionEdgeVisibility->isChecked());
+    renwin->Render();
+}
+
 void MainWindow::slotArbitraryTest()
 {
-    QString line = QString("edges \n(");
-    std::cout << "original: " << line.toAscii().data();
-    line.replace(QRegExp("edges[\\s,\\n]*\\("),"foo\nbar");
-    std::cout << " regexped: " << line.toAscii().data()
-              << std::endl;
+    InteractorStyleActorPick *is =
+            InteractorStyleActorPick::New();
+    is->SetCurrentRenderer(hexBlocker->renderer);
+    is->setHexBlocker(hexBlocker);
 
-//    hexBlocker->arbitraryTest();
-    renwin->Render();
+    is->setSelection(
+                InteractorStyleActorPick::edge,
+                InteractorStyleActorPick::single
+                );
+
+    renwin->GetInteractor()->SetInteractorStyle(is);
+    hexBlocker->arbitraryTest();
 }
 
 void MainWindow::slotExit()

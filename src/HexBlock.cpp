@@ -43,6 +43,9 @@ License
 #include <vtkLine.h>
 #include <vtkProperty.h>
 #include <vtkTubeFilter.h>
+#include <vtkHexahedron.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkDataSetMapper.h>
 
 vtkStandardNewMacro(HexBlock);
 
@@ -58,7 +61,8 @@ HexBlock::HexBlock()
     globalEdges = vtkSmartPointer<vtkCollection>::New();
     globalPatches = vtkSmartPointer<vtkCollection>::New();
 
-    hexActor = vtkSmartPointer<vtkActor>::New();
+    hexAxisActor = vtkSmartPointer<vtkActor>::New();
+    hexBlockActor = vtkSmartPointer<vtkActor>::New();
 }
 
 HexBlock::~HexBlock()
@@ -247,6 +251,59 @@ void HexBlock::PrintSelf(ostream &os, vtkIndent indent)
 
 }
 
+void HexBlock::exportDict(QTextStream &os)
+{
+    os << "\t hex (";
+    for(vtkIdType j=0; j<vertIds->GetNumberOfIds();j++)
+    {
+        os << vertIds->GetId(j);
+        if(j < vertIds->GetNumberOfIds()-1)
+            os << " ";
+        else
+            os << ") ";
+    }
+
+    int nCells[3];
+    getNumberOfCells(nCells);
+    os << "("
+       << nCells[0] <<" "<< nCells[1]<<" " << nCells[2]
+       << ") ";
+    double gradings[12];
+
+    if(getGradings(gradings))
+    {
+        os << "simpleGrading (" <<gradings[0] << " "
+           << gradings[4] << " " << gradings[8] << ")";
+    }
+    else
+    {
+        os << "edgeGrading ( ";
+        for(int i =0;i<12;i++)
+                os << gradings[i] << " ";
+        os << ")" << endl;
+    }
+}
+
+bool HexBlock::getGradings(double gradings[12])
+{
+    for(vtkIdType i =0;i<edgeIds->GetNumberOfIds();i++)
+    {
+        gradings[i] = HexEdge::SafeDownCast(
+                    globalEdges->GetItemAsObject(edgeIds->GetId(i)))->grading;
+    }
+
+    return (gradings[0] == gradings[1]
+            &&gradings[2] == gradings[3]
+            &&gradings[1] == gradings[2] //first four edges
+            &&gradings[4] == gradings[5]
+            &&gradings[6] == gradings[7]
+            &&gradings[4] == gradings[5]//second four edges
+            &&gradings[8] == gradings[9]
+            &&gradings[10] == gradings[11]
+            &&gradings[9] == gradings[10] //last edges
+            );
+}
+
 void HexBlock::drawLocalaxes()
 {
     unsigned char red[3] = {255, 0, 0};
@@ -300,13 +357,52 @@ void HexBlock::drawLocalaxes()
     axesMapper->SetInputConnection(axesTubes->GetOutputPort());
 
 
-    hexActor->SetMapper(axesMapper);
+    hexAxisActor->SetMapper(axesMapper);
     double x[3];
     globalVertices->GetPoint(vertIds->GetId(0),x);
-    hexActor->SetOrigin(x);
-    hexActor->SetScale(0.4);
+    hexAxisActor->SetOrigin(x);
+    hexAxisActor->SetScale(0.4);
     //hexActor->GetProperty()->SetLineWidth(3);
-    hexActor->SetPickable(false);
+    hexAxisActor->SetPickable(false);
+}
+
+void HexBlock::drawBlock()
+{
+    vtkSmartPointer<vtkHexahedron> hexahedron =
+            vtkSmartPointer<vtkHexahedron>::New();
+    for(vtkIdType i=0;i<8;i++)
+    {
+        hexahedron->GetPointIds()->SetId(i,vertIds->GetId(i));
+    }
+
+    vtkSmartPointer<vtkCellArray> hexes =
+            vtkSmartPointer<vtkCellArray>::New();
+    hexes->InsertNextCell(hexahedron);
+
+    vtkSmartPointer<vtkUnstructuredGrid> uGrid =
+             vtkSmartPointer<vtkUnstructuredGrid>::New();
+    uGrid->SetPoints(globalVertices);
+    uGrid->InsertNextCell(hexahedron->GetCellType(), hexahedron->GetPointIds());
+
+    vtkSmartPointer<vtkDataSetMapper> hexaMapper =
+             vtkSmartPointer<vtkDataSetMapper>::New();
+#if VTK_MAJOR_VERSION <= 5
+    hexaMapper->SetInputConnection(uGrid->GetProducerPort());
+#else
+    hexaMapper->SetInputData(uGrid);
+#endif
+
+    hexBlockActor->SetMapper(hexaMapper);
+    double c[3];
+    getCenter(c);
+    hexBlockActor->SetOrigin(c);
+    hexBlockActor->SetScale(0.4);
+    hexBlockActor->GetProperty()->SetColor(0,100,110);
+    hexBlockActor->GetProperty()->SetEdgeColor(0,0,0);
+    hexBlockActor->GetProperty()->EdgeVisibilityOn();
+    hexBlockActor->SetVisibility(true);
+    hexBlockActor->GetProperty()->SetOpacity(6.0);
+
 }
 
 void HexBlock::initAll()
@@ -314,6 +410,7 @@ void HexBlock::initAll()
     initEdges();
     initPatches();
     drawLocalaxes();
+    drawBlock();
 }
 
 void HexBlock::initEdges()
@@ -472,12 +569,9 @@ vtkSmartPointer<vtkIdList> HexBlock::getParallelEdges(vtkIdType edgeId)
 
 void HexBlock::getNumberOfCells(int nCells[3])
 {
-    HexEdge * e = HexEdge::SafeDownCast(globalEdges->GetItemAsObject(edgeIds->GetId(0)));
-    nCells[0] = e->nCells;
-    e = HexEdge::SafeDownCast(globalEdges->GetItemAsObject(edgeIds->GetId(1)));
-    nCells[1] = e->nCells;
-    e = HexEdge::SafeDownCast(globalEdges->GetItemAsObject(edgeIds->GetId(2)));
-    nCells[2] = e->nCells;
+    nCells[0] = HexEdge::SafeDownCast(globalEdges->GetItemAsObject(edgeIds->GetId(0)))->nCells;
+    nCells[1] =  HexEdge::SafeDownCast(globalEdges->GetItemAsObject(edgeIds->GetId(4)))->nCells;
+    nCells[2] =  HexEdge::SafeDownCast(globalEdges->GetItemAsObject(edgeIds->GetId(8)))->nCells;
 }
 
 void HexBlock::setAxesRadius(double rad)
@@ -508,8 +602,18 @@ void HexBlock::rescaleActor()
 {
     double x[3];
     globalVertices->GetPoint(vertIds->GetId(0),x);
-    hexActor->SetOrigin(x);
-    hexActor->SetScale(0.4);
+    hexAxisActor->SetOrigin(x);
+    hexAxisActor->SetScale(0.4);
+
+    double c[3];
+    getCenter(c);
+    hexBlockActor->SetOrigin(c);
+    hexBlockActor->SetScale(0.4);
+}
+
+void HexBlock::resetColor()
+{
+    hexBlockActor->GetProperty()->SetColor(0,100,110);
 }
 
 void HexBlock::getCenter(double center[])
@@ -537,6 +641,7 @@ void HexBlock::changeVertId(vtkIdType from, vtkIdType to)
         vertIds->SetId(pos,to);
     }
     drawLocalaxes();
+    drawBlock();
 }
 
 void HexBlock::reduceVertId(vtkIdType vId)
@@ -548,5 +653,40 @@ void HexBlock::reduceVertId(vtkIdType vId)
             vertIds->SetId(i,oldId-1);
     }
     drawLocalaxes();
+    drawBlock();
 }
 
+vtkIdList * HexBlock::commonVertices(HexBlock *hb)
+{
+    vtkIdList * comVerts;
+    for(vtkIdType i=0;i<8;i++)
+    {
+        //isId returns the id if it's present
+        if(this->vertIds->IsId(hb->vertIds->GetId(i)>-1))
+            comVerts->InsertNextId(vertIds->GetId(i));
+    }
+    return comVerts;
+}
+
+bool HexBlock::hasVertice(vtkIdType vId)
+{
+    return vertIds->IsId(vId) > -1;
+}
+
+bool HexBlock::hasEdge(vtkIdType vId)
+{
+    return edgeIds->IsId(vId) > -1;
+}
+
+bool HexBlock::equals(HexBlock *other)
+{
+//    std::cout << "\t comparing: this, other" <<std::endl;
+    for(vtkIdType i=0;i<vertIds->GetNumberOfIds();i++)
+    {
+//        std::cout << "\t " << vertIds->GetId(i) << " " << other->vertIds->GetId(i) <<std::endl;
+        if( this->vertIds->GetId(i) != other->vertIds->GetId(i))
+            return false;
+    }
+
+    return true;
+}

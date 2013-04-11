@@ -56,6 +56,7 @@ class vtkAreaPicker;
 class InteractorStyleVertPick;
 class InteractorStylePatchPick;
 class InteractorStyleEdgePick;
+class InteractorStyleActorPick;
 class vtkInteractorStyleTrackballCamera;
 class ToolBoxWidget;
 class vtkIdList;
@@ -72,8 +73,7 @@ public:
 
   //instances of interactor stiles.
   vtkSmartPointer<InteractorStyleVertPick> styleVertPick;
-  vtkSmartPointer<InteractorStylePatchPick> stylePatchPick;
-  vtkSmartPointer<InteractorStyleEdgePick> styleEdgePick;
+  vtkSmartPointer<InteractorStyleActorPick> styleActorPick;
 
   //open file name, main needs access
   QString openFileName;
@@ -86,9 +86,11 @@ public slots:
   void slotExit();
   void slotCreateHexBlock();
   void slotOpenCreateHexBlockDialog();
+  void slotStartDeleteHexBlock();
+  void slotDeleteHexBlock();
   void slotPrintHexBlocks();
   void slotStartExtrudePatch();
-  void slotExtrudePatch(vtkIdList *selectedPatches);
+  void slotExtrudePatch();
   void slotOpenMoveVerticesDialog();
   void slotStartSelectVertices();
   void slotEndSelectVertices();
@@ -96,7 +98,7 @@ public slots:
   void slotResetInteractor();
   void slotOpenSetBCsDialog();
   void slotPatchSelectionDone();
-  void slotStartSelectPatches(vtkIdType bcID);
+  void slotStartSelectPatches(vtkIdList * selectedPatches);
   void slotNewCase();
   void slotOpenBlockMeshDict();
   void slotReOpenBlockMeshDict();
@@ -104,15 +106,17 @@ public slots:
   void slotSaveBlockMeshDict();
   void slotRender();
   void slotShowStatusText(QString text);
+  void slotOpenSetEdgePropsDialog();
   void slotStartSelectEdges();
-  void slotEdgeSelectionDone(vtkIdType edgeId);
+  void slotEdgeSelectionDone();
   void slotAboutDialog();
   void slotArbitraryTest();
   void slotStartMergePatch();
-  void slotMergePatch(vtkIdList * selectedPatch);
+  void slotMergePatch();
+
+  void slotHexObjVisibility();
 
 
-  // void slotSetBCs();
 
 
 protected:

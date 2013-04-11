@@ -108,10 +108,13 @@ public:
     void exportEdges(QTextStream &os);
 
     //highlight all parallel edges
-    int showParallelEdges(vtkIdType edgeId);
+    HexEdge * showParallelEdges(vtkIdType edgeId);
 
-    //Set the number of cells of all dependent edges
-    void setNumberOnParallelEdges(vtkIdType edgeId,int nCells);
+    //Set the number of cells and grading
+    // mode=0 prop grading to all parallel
+    // mode=1 dont propagate grading
+    // mode=2 only to block that owns the edge (not yet implemented)
+    void setEdgePropsOnParallelEdges(HexEdge *props,vtkIdType edgeId, int mode=0);
 
     //nx*ny*nz is sumed for all blocks
     int calculateTotalNumberOfCells();
@@ -130,11 +133,31 @@ public:
     bool removeVerticeSafely(vtkIdType toRem);
     void removeVerticesSafely(vtkIdList * toRemove);
 
+    // remove a block and any patch or edge that has vertices
+    // that are no longer needed by any block.
+    // it does not remove vertices
+    void removeHexBlock(vtkIdType toRem);
+
+    //As above but fill vertsToRem with vertices that are no longer needed.
+    void removeHexBlock(const vtkIdType toRem, vtkIdList * vertsToRem);
     //this is a testfunktion for quick and dirty testing
     //and devloping
+
+    // calls removeHexBlock(toRem,vert2rem) for every item in list
+    // ie removes all blocks in hte list and their vertices
+    void removeHexBlocks(vtkIdList * toRems);
     void arbitraryTest();
 
-
+    //show/hide objects
+    void showBlocks();
+    void hideBlocks();
+    void visibilityBlocks(bool mode);
+    void showPatches();
+    void hidePatches();
+    void visibilityPatches(bool mode);
+    void showEdges();
+    void hideEdges();
+    void visibilityEdges(bool mode);
 
     //DATA
     vtkSmartPointer<vtkPoints> vertices;
@@ -168,7 +191,17 @@ private:
     void removeVertice(vtkIdType toRem);
     void removeVertices(vtkIdList * toRemove);
 
-    // decreases Ids > toRem (not equal to toRem)
+    /* decreases Ids > toRem (not equal to toRem)
+     these are used when deleting while traversing a list
+     For instance lets say we have the list org(10 11 12 13 14) and
+     want to remove the items in position toRem(1 2) i.e ids 11 and 12
+     first we remove the item in toRem[0] i.e id 11. We get the list
+     (10 11 13 14). Then we remove toRem[1] which is id 13.
+     Not what was originally intended. the answer is to run
+     decreaseList(toRem,toRem[0]) between delete operations.
+     this will decrease the 2 in toRem by one. Thus pointing to
+     the second item in (10 11 13 14), id 11. The result is
+     the list (10 13 14 ) which was the intention*/
     void decreaseList(vtkIdList * list, vtkIdList * toRemove);
     void decreaseList(vtkIdList * list, vtkIdType toRem);
 };

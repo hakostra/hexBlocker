@@ -27,39 +27,52 @@ Description
     It sends signal to MainWindow which handles hexBlocker.
 
 */
-#ifndef CREATEBLOCKWIDGET_H
-#define CREATEBLOCKWIDGET_H
+#ifndef EDGEPROPSWIDGET_H
+#define EDGEPROPSWIDGET_H
 
+#include <vtkSmartPointer.h>
 #include <QWidget>
 
+//Predeclarations
 class HexBlocker;
+class GradingCalculatorDialog;
+class HexEdge;
 
 namespace Ui {
-class CreateBlockWidget;
+class EdgePropsWidget;
 }
 
-class CreateBlockWidget : public QWidget
+class EdgePropsWidget : public QWidget
 {
     Q_OBJECT
     
 public:
-    explicit CreateBlockWidget(QWidget *parent = 0);
-    ~CreateBlockWidget();
-    
-    double c0[3];
-    double c1[3];
-    HexBlocker *hexBlocker;
+    explicit EdgePropsWidget(QWidget *parent = 0);
+    ~EdgePropsWidget();
 
+    //FUNCTIONS
+    void setSelectedEdge(vtkIdType selEdgeId);
+    //DATA
+    HexBlocker * hexBlocker;
+
+    
 public slots:
     void slotApply();
     void slotCancel();
+    void slotOpenCalc();
+    void slotCalcApplied();
 
 signals:
     void apply();
     void cancel();
     void setStatusText(QString);
+    void startSelectEdges();
+
 private:
-    Ui::CreateBlockWidget *ui;
+    vtkIdType selectedEdgeId;
+    HexEdge *selectedEdge;
+    Ui::EdgePropsWidget *ui;
+    GradingCalculatorDialog * gradCalcDialog;
 };
 
-#endif // CREATEBLOCKWIDGET_H
+#endif // EDGEPROPSWIDGET_H

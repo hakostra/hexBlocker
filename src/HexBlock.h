@@ -36,6 +36,7 @@ Description
 #include <vtkSmartPointer.h>
 #include <vtkObject.h>
 #include <iostream>
+#include <QTextStream>
 
 //Pre declarations
 class HexPatch;
@@ -50,7 +51,9 @@ class vtkMapper;
 class vtkActor;
 class vtkTubeFilter;
 class vtkCellArray;
-
+class vtkHexahedron;
+class vtkUnstructuredGrid;
+class vtkDataSetMapper;
 
 
 
@@ -105,6 +108,9 @@ public:
     //resets the center and rescales the axis
     void rescaleActor();
 
+    //reset the color of the box
+    void resetColor();
+
     //returns the center of the block, calculated as the
     //average of all vertices.
     void getCenter(double center[3]);
@@ -119,6 +125,23 @@ public:
     //creates new edges if needed
     void initEdges();
 
+    //puts hex ( 1 2 3.. ) (10 10 10) (grading) to os
+    void exportDict(QTextStream &os);
+
+    // returns true if simpleGrading is possible
+    bool getGradings(double gradings[12] );
+
+    // returns a list of common vertices. NOT YET TESTED
+    vtkIdList* commonVertices(HexBlock *hb);
+
+    // returns true if vId is in vertIds
+    bool hasVertice(vtkIdType vId);
+    bool hasEdge(vtkIdType vId);
+
+    //returns true if they have the same vertices
+    //in the same order
+    bool equals(HexBlock *other);
+
     //DATA
     vtkSmartPointer<vtkPoints> globalVertices; //Global list of vertices
     vtkSmartPointer<vtkCollection> globalEdges;
@@ -127,7 +150,8 @@ public:
     vtkSmartPointer<vtkIdList> vertIds; // own vertices in globalVertices
     vtkSmartPointer<vtkIdList> edgeIds;
     vtkSmartPointer<vtkIdList> patchIds; //own patches in globalPatches
-    vtkSmartPointer<vtkActor> hexActor; //for axes.
+    vtkSmartPointer<vtkActor> hexAxisActor; //for axes.
+    vtkSmartPointer<vtkActor> hexBlockActor; //for axes.
 
 private:
     //FUNCTIONS
@@ -138,6 +162,9 @@ private:
     //of the local coordinates
     void drawLocalaxes();
 
+    // draws a blue block.
+    void drawBlock();
+
     void initEdge(vtkIdType p0,vtkIdType p1);
     void initPatches();
     void initPatch(int id0,int id1,int id2,int id3);
@@ -147,6 +174,10 @@ private:
     vtkSmartPointer<vtkPolyData> axesData;
     vtkSmartPointer<vtkTubeFilter> axesTubes;
 
+//    vtkSmartPointer<vtkHexahedron> hexahedron;
+//    vtkSmartPointer<vtkCellArray> hexes;
+//    vtkSmartPointer<vtkUnstructuredGrid> uGrid;
+//    vtkSmartPointer<vtkDataSetMapper> hexaMapper;
 };
 
 #endif // HEXBLOCK_H
